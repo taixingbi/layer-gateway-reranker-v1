@@ -1,0 +1,18 @@
+name: layer-gateway-reranker
+
+services:
+  router:
+    image: layer-gateway-reranker-v1
+    build: .
+    container_name: layer-gateway-reranker-v1
+    restart: unless-stopped
+    labels:
+      com.layer.service: layer-gateway-reranker
+    ports:
+      - "30182:30182"
+    env_file:
+      - .env
+    environment:
+      # vLLM on same Mac: host.docker.internal:8002
+      # vLLM on LAN (default):
+      - RERANK_BACKENDS=rerank-node-1=http://192.168.86.173:8002,rerank-node-2=http://192.168.86.176:8002
