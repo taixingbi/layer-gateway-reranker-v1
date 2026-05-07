@@ -6,6 +6,7 @@ Request-level routing gateway for `/v1/rerank` across multiple vLLM backends.
 
 - `POST /v1/rerank`
 - `GET /health`
+- `GET /ready`
 - `GET /metrics`
 
 ## Correlation headers (recommended)
@@ -51,10 +52,11 @@ Set values via environment variables (see `.env.example`):
 - `docs/design.md`
 - `docs/status-codes.md`
 - `docs/request-response-and-logging.md`
+- `docs/smoke-test.md`
 - `docs/run-locally.md`
 - `docs/docker.md`
 
-## Run
+## Quick Start
 
 Many systems only expose `python3` / `pip3`, or have no `python`/`pip` on `PATH`. If you see `command not found: python` or `command not found: pip`, use a virtual environment and the `python3` launcher:
 
@@ -65,50 +67,37 @@ python -m pip install .
 python -m app.main
 ```
 
-Without activating the venv:
+Verify service health:
 
 ```bash
-cd /path/to/layer-gateway-reranker-v1
-python3 -m venv .venv
-.venv/bin/pip install .
-.venv/bin/python -m app.main
+curl -sS http://127.0.0.1:30182/health
+curl -sS http://127.0.0.1:30182/ready
 ```
+
+Then run full endpoint checks via `docs/smoke-test.md`.
 
 If `python3` is missing, install Python 3.12+ (for example on macOS: `brew install python`).
 
-## Test after deploy (k3s)
+## Examples and Smoke Tests
 
-OpenAPI / Swagger UI: [http://192.168.86.179:30182/docs](http://192.168.86.179:30182/docs)
+Full curl coverage (health, ready, rerank, header propagation, and negative tests) is in `docs/smoke-test.md`.
+
+Header-based rerank example:
 
 ```bash
-## simple
-curl -X POST http://192.168.86.179:30182/v1/rerank \
+export GW_URL="http://127.0.0.1:30182"
+curl -sS "$GW_URL/v1/rerank" \
   -H "Content-Type: application/json" \
+  -H "X-Request-Id: smoke-req-1" \
+  -H "X-Trace-Id: smoke-trace-1" \
+  -H "X-Session-Id: smoke-session-1" \
   -d '{
-    "model":"BAAI/bge-reranker-v2-m3",
-    "query":"What is Paris?",
-    "documents":[
+    "model": "BAAI/bge-reranker-v2-m3",
+    "query": "What is Paris?",
+    "documents": [
       "Paris is the capital of France.",
       "Berlin is the capital of Germany."
     ],
-    "top_n":2
-  }'
-```
-
-```bash
-## header with request-id, trace-id and session id
-curl -X POST http://192.168.86.179:30182/v1/rerank \
-  -H "Content-Type: application/json" \
-  -H "X-Request-Id: request_id_1" \
-  -H "X-Trace-Id: trace_id_1" \
-  -H "X-Session-Id: session_id_1" \
-  -d '{
-    "model":"BAAI/bge-reranker-v2-m3",
-    "query":"What is Paris?",
-    "documents":[
-      "Paris is the capital of France.",
-      "Berlin is the capital of Germany."
-    ],
-    "top_n":2
+    "top_n": 2
   }'
 ```

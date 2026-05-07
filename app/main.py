@@ -1,4 +1,4 @@
-"""FastAPI app factory: lifespan wiring, `/health`, `/metrics`, and uvicorn entry."""
+"""FastAPI app factory: lifespan wiring, `/health`, `/ready`, `/metrics`, and uvicorn entry."""
 
 from __future__ import annotations
 
@@ -51,6 +51,12 @@ app.include_router(rerank_router)
 def health() -> dict[str, str]:
     """Kubernetes-style liveness payload."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready() -> dict[str, str]:
+    """Kubernetes-style readiness payload."""
+    return {"status": "ready"}
 
 
 @app.get("/metrics")

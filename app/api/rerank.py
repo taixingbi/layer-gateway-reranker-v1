@@ -31,6 +31,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 _BLOCKED_HEADERS = frozenset({"host", "content-length"})
 _CORRELATION_KEYS_LOWER = frozenset({"x-request-id", "x-trace-id", "x-session-id"})
+_CORRELATION_KEYS_BODY = frozenset(
+    {
+        "x-request-id",
+        "x-trace-id",
+        "x-session-id",
+        "request_id",
+        "trace_id",
+        "session_id",
+    }
+)
 _RERANK_PATH = "/v1/rerank"
 
 
@@ -115,6 +125,14 @@ def _build_outbound_headers(
     return out
 
 
+def _body_contains_correlation_id(payload: object) -> bool:
+    """Reject body-level correlation IDs; they must be sent via headers only."""
+    if not isinstance(payload, dict):
+        return False
+    lowered_keys = {str(k).strip().lower() for k in payload.keys()}
+    return any(key in lowered_keys for key in _CORRELATION_KEYS_BODY)
+
+
 @router.post("/v1/rerank")
 async def rerank(request: Request) -> Response:
     """
@@ -165,6 +183,25 @@ async def rerank(request: Request) -> Response:
 
     try:
         payload = await request.json()
+        if _body_contains_correlation_id(payload):
+            log_gateway_event(
+                logger,
+                logging.WARNING,
+                "request_rejected_invalid_body",
+                request_id=request_id,
+                trace_id=trace_id,
+                session_id=session_id,
+                path=_RERANK_PATH,
+                status_code=400,
+                error={"kind": "CorrelationIdInBody"},
+            )
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "Correlation IDs must be provided via headers only: "
+                    "X-Request-Id, X-Trace-Id, X-Session-Id"
+                },
+            )
         parsed = RerankRequest.model_validate(payload)
         req_class = parsed.classify().value
 

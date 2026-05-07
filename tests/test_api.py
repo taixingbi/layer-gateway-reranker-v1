@@ -33,6 +33,12 @@ def test_health():
     assert response.status_code == 200
 
 
+def test_ready():
+    with TestClient(app) as client:
+        response = client.get("/ready")
+    assert response.status_code == 200
+
+
 def _mock_upstream_ok(client: TestClient) -> None:
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -94,3 +100,18 @@ def test_invalid_payload_releases_admission_slot():
     finally:
         os.environ.pop("ADMISSION_MAX_CONCURRENT", None)
         get_settings.cache_clear()
+
+
+def test_correlation_ids_in_body_returns_400():
+    get_settings.cache_clear()
+    with TestClient(app) as client:
+        _mock_upstream_ok(client)
+        payload = _payload()
+        payload["request_id"] = "req-in-body"
+        response = client.post("/v1/rerank", json=payload)
+        assert response.status_code == 400
+        assert "headers only" in response.json()["error"]
+
+        # Ensure the request is rejected before upstream proxy call.
+        post = client.app.state.gateway_context.client.post
+        assert post.await_count == 0
