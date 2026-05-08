@@ -90,3 +90,25 @@ curl -sS -i "$GW_URL/v1/rerank" \
 Expected:
 - HTTP `400`
 - Error message indicating correlation IDs must be passed via headers only.
+
+## 6) k3s Deploy (NodePort)
+
+From a host that can reach the dev NodePort (adjust IP if your server differs). `jq` is optional (drop `| jq .` if not installed).
+
+```bash
+curl -sS -X POST http://192.168.86.179:30182/v1/rerank \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: req-abc123" \
+  -H "X-Session-Id: ses-xyz789" \
+  -H "X-Trace-Id: trc-001" \
+  -d '{
+    "model": "BAAI/bge-reranker-v2-m3",
+    "query": "what is taixing visa",
+    "documents": [
+      "Taixing visa is the visa service product used by Taixing.",
+      "This sentence is unrelated to the user question."
+    ],
+    "top_n": 2
+  }' | jq .
+```
+
