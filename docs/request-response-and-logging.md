@@ -106,7 +106,6 @@ When JSON logging is enabled, `JsonLogFormatter` emits **one JSON object per lin
 | `path` | string or `"-"` | Gateway route path (e.g. `/v1/rerank`) |
 | `backend` | string or `"-"` | Upstream backend **name** when relevant |
 | `conversation_id` | string or `"-"` | Thread id (`resolve_conversation_id`); `"-"` when omitted on the record (e.g. `gateway_process_started`) |
-| `is_new_conversation` | boolean (optional) | Present on rerank-path events when thread context exists |
 | `latency_ms` | number (optional) | **Upstream-only** duration: from start of `httpx.post` to completion (excludes admission wait and JSON parse before the post) |
 | `queue_wait_ms` | number (optional) | Time spent waiting on the **admission semaphore** before handling |
 | `status_code` | number (optional) | HTTP status when relevant (e.g. admission 429, upstream status on finish) |
@@ -120,13 +119,13 @@ When JSON logging is enabled, `JsonLogFormatter` emits **one JSON object per lin
 | `event` | Level | Typical `path` | `backend` | Key `gateway_meta` / other fields |
 |---------|-------|----------------|-----------|-----------------------------------|
 | `gateway_process_started` | INFO | — | — | `backends_count`, `admission_max_concurrent`, `admission_wait_timeout_ms` |
-| `gateway_started` | INFO | `/v1/rerank` | — | Top-level: `conversation_id`, `is_new_conversation`. `gateway_meta`: `backends_count`, admission settings, `model`, `request_class`, `client_host` |
-| `routing_pick` | INFO | `/v1/rerank` | chosen backend | Top-level: `conversation_id`, `is_new_conversation`. `gateway_meta`: `attempt`, `excluded`, **`decision_reason`**, **`backends`**, **`weights`** (see below) |
-| `routing_no_backend` | WARN | `/v1/rerank` | — | Top-level: `conversation_id`, `is_new_conversation`. `gateway_meta`: `attempt`, `excluded`, same routing debug as `routing_pick` |
-| `backend_retry` | WARN | `/v1/rerank` | failed backend | Top-level: `conversation_id`, `is_new_conversation`. `gateway_meta`: `attempt`; may include `latency_ms`, `status_code`, or `error` |
-| `request_finished` | INFO | `/v1/rerank` | backend used | Top-level: `conversation_id`, `is_new_conversation`. `gateway_meta`: `model`, `request_class`, `attempt` |
-| `request_failed` | WARN | `/v1/rerank` | — | Top-level: `conversation_id`, `is_new_conversation`; `error.kind` after retries exhausted |
-| `request_rejected_invalid_body` | WARN | `/v1/rerank` | — | Top-level: `conversation_id`, `is_new_conversation` (from body before reject); `error.kind` |
+| `gateway_started` | INFO | `/v1/rerank` | — | Top-level: `conversation_id`. `gateway_meta`: `backends_count`, admission settings, `model`, `request_class`, `client_host` |
+| `routing_pick` | INFO | `/v1/rerank` | chosen backend | Top-level: `conversation_id`. `gateway_meta`: `attempt`, `excluded`, **`decision_reason`**, **`backends`**, **`weights`** (see below) |
+| `routing_no_backend` | WARN | `/v1/rerank` | — | Top-level: `conversation_id`. `gateway_meta`: `attempt`, `excluded`, same routing debug as `routing_pick` |
+| `backend_retry` | WARN | `/v1/rerank` | failed backend | Top-level: `conversation_id`. `gateway_meta`: `attempt`; may include `latency_ms`, `status_code`, or `error` |
+| `request_finished` | INFO | `/v1/rerank` | backend used | Top-level: `conversation_id`. `gateway_meta`: `model`, `request_class`, `attempt` |
+| `request_failed` | WARN | `/v1/rerank` | — | Top-level: `conversation_id`; `error.kind` after retries exhausted |
+| `request_rejected_invalid_body` | WARN | `/v1/rerank` | — | Top-level: `conversation_id` (from body before reject); `error.kind` |
 | `admission_rejected` | WARN | `/v1/rerank` | — | `wait_timeout_ms`, `status_code` 429 |
 
 ### `routing_pick` / `routing_no_backend`: `gateway_meta` routing snapshot
