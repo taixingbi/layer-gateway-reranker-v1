@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.core.config import Settings
+from app.core.conversation import resolve_conversation_id, strip_conversation_fields
 from app.core.logging import log_gateway_event, new_request_id
 from app.metrics.prometheus import (
     ADMISSION_INQUEUE,
@@ -41,6 +43,7 @@ _CORRELATION_KEYS_BODY = frozenset(
         "session_id",
     }
 )
+_CONVERSATION_KEYS_LOWER = frozenset({"x-conversation-id", "x-is-new-conversation"})
 _RERANK_PATH = "/v1/rerank"
 
 
@@ -111,20 +114,58 @@ def _build_outbound_headers(
     request_id: str,
     trace_id: str,
     session_id: str,
+    *,
+    conversation_id: str,
+    is_new_conversation: bool,
 ) -> dict[str, str]:
-    """Hop-by-hop and correlation stripped in one pass; canonical correlation headers set last."""
+    """Hop-by-hop, correlation, and gateway conversation headers; client thread headers stripped."""
     out: dict[str, str] = {}
     for k, v in request.headers.items():
         lk = k.lower()
-        if lk in _BLOCKED_HEADERS or lk in _CORRELATION_KEYS_LOWER:
+        if lk in _BLOCKED_HEADERS or lk in _CORRELATION_KEYS_LOWER or lk in _CONVERSATION_KEYS_LOWER:
             continue
         out[k] = v
     out["X-Request-Id"] = request_id
     out["X-Trace-Id"] = trace_id
     out["X-Session-Id"] = session_id
+    out["x-conversation-id"] = conversation_id
+    out["x-is-new-conversation"] = "true" if is_new_conversation else "false"
     return out
 
 
+def _upstream_response_with_conversation(
+    upstream: httpx.Response,
+    *,
+    conversation_id: str,
+    is_new_conversation: bool,
+) -> Response:
+    """Pass through upstream body; merge thread fields into JSON object on 2xx when possible."""
+    resp_headers = {
+        "x-conversation-id": conversation_id,
+        "x-is-new-conversation": "true" if is_new_conversation else "false",
+    }
+    ct = upstream.headers.get("content-type") or ""
+    if 200 <= upstream.status_code < 300 and "json" in ct.lower():
+        try:
+            obj = json.loads(upstream.content)
+            if isinstance(obj, dict):
+                obj["conversation_id"] = conversation_id
+                obj["is_new_conversation"] = is_new_conversation
+                body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+                return Response(
+                    content=body,
+                    status_code=upstream.status_code,
+                    media_type="application/json",
+                    headers=resp_headers,
+                )
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+    return Response(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=ct or None,
+        headers=resp_headers,
+    )
 def _body_contains_correlation_id(payload: object) -> bool:
     """Reject body-level correlation IDs; they must be sent via headers only."""
     if not isinstance(payload, dict):
@@ -141,12 +182,15 @@ async def rerank(request: Request) -> Response:
     `X-Request-Id`, `X-Trace-Id`, and `X-Session-Id` are optional; blank or missing values are
     filled with UUIDs for logging and upstream forwarding.
 
+    Optional body field ``conversation_id`` selects a thread id; omitted or blank values receive
+    a generated ``conv_`` id. ``conversation_id`` / ``is_new_conversation`` are stripped from the
+    upstream JSON and surfaced via headers and merged JSON responses when applicable.
+
     Flow: admission -> parse JSON -> retry loop (pick backend -> POST upstream -> metrics/logs).
     Retries exclude failed backends; `5xx` counts as selector failure for the breaker.
     """
     context: GatewayContext = request.app.state.gateway_context
     request_id, trace_id, session_id = _resolve_correlation_ids(request)
-    out_headers = _build_outbound_headers(request, request_id, trace_id, session_id)
     admission = context.settings.admission_queue
     retry_cfg = context.settings.retry
     retryable_statuses = retry_cfg.retryable_statuses
@@ -183,6 +227,8 @@ async def rerank(request: Request) -> Response:
 
     try:
         payload = await request.json()
+        if not isinstance(payload, dict):
+            return JSONResponse(status_code=400, content={"error": "JSON body must be an object"})
         if _body_contains_correlation_id(payload):
             log_gateway_event(
                 logger,
@@ -202,8 +248,18 @@ async def rerank(request: Request) -> Response:
                     "X-Request-Id, X-Trace-Id, X-Session-Id"
                 },
             )
-        parsed = RerankRequest.model_validate(payload)
+        conversation_id, is_new_conversation = resolve_conversation_id(payload)
+        upstream_json = strip_conversation_fields(payload)
+        parsed = RerankRequest.model_validate(upstream_json)
         req_class = parsed.classify().value
+        out_headers = _build_outbound_headers(
+            request,
+            request_id,
+            trace_id,
+            session_id,
+            conversation_id=conversation_id,
+            is_new_conversation=is_new_conversation,
+        )
 
         log_gateway_event(
             logger,
@@ -221,6 +277,8 @@ async def rerank(request: Request) -> Response:
                 "model": parsed.model,
                 "request_class": req_class,
                 "client_host": getattr(request.client, "host", None),
+                "conversation_id": conversation_id,
+                "is_new_conversation": is_new_conversation,
             },
         )
 
@@ -272,7 +330,7 @@ async def rerank(request: Request) -> Response:
             try:
                 upstream = await context.client.post(
                     upstream_url,
-                    json=payload,
+                    json=upstream_json,
                     headers=out_headers,
                 )
                 latency_ms = (time.perf_counter() - start) * 1000
@@ -317,12 +375,14 @@ async def rerank(request: Request) -> Response:
                         "model": parsed.model,
                         "request_class": req_class,
                         "attempt": attempt,
+                        "conversation_id": conversation_id,
+                        "is_new_conversation": is_new_conversation,
                     },
                 )
-                return Response(
-                    content=upstream.content,
-                    status_code=upstream.status_code,
-                    media_type=upstream.headers.get("content-type"),
+                return _upstream_response_with_conversation(
+                    upstream,
+                    conversation_id=conversation_id,
+                    is_new_conversation=is_new_conversation,
                 )
             except (httpx.TimeoutException, httpx.HTTPError) as exc:
                 latency_ms = (time.perf_counter() - start) * 1000

@@ -16,7 +16,11 @@ class RerankClass(str, Enum):
 
 
 class RerankRequest(BaseModel):
-    """Minimal vLLM-style rerank request (`model` + `query` + `documents`)."""
+    """vLLM-style rerank request (`model`, `query`, `documents`, optional `top_n`).
+
+    Optional body field ``conversation_id`` is resolved and stripped before validation;
+    see ``app/core/conversation.py`` and ``docs/conversation-id.md``.
+    """
 
     model: str
     query: str

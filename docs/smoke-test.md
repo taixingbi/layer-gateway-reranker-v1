@@ -71,7 +71,31 @@ curl -sS "$GW_URL/v1/rerank" \
 
 Expected: HTTP `200`.
 
-## 5) Negative test: correlation IDs in body must return 400
+## 5) Rerank with `conversation_id`
+
+Optional thread id in the JSON body (stripped before upstream; echoed in response on 2xx JSON):
+
+```bash
+curl -sS "$GW_URL/v1/rerank" \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: smoke-req-2" \
+  -H "X-Trace-Id: smoke-trace-2" \
+  -H "X-Session-Id: smoke-session-2" \
+  -d '{
+    "model": "BAAI/bge-reranker-v2-m3",
+    "query": "What is Paris?",
+    "documents": [
+      "Paris is the capital of France.",
+      "Berlin is the capital of Germany."
+    ],
+    "top_n": 2,
+    "conversation_id": "my-thread-1"
+  }'
+```
+
+Expected: HTTP `200`; response JSON includes `conversation_id` and `is_new_conversation`.
+
+## 6) Negative test: correlation IDs in body must return 400
 
 ```bash
 curl -sS -i "$GW_URL/v1/rerank" \
@@ -91,7 +115,7 @@ Expected:
 - HTTP `400`
 - Error message indicating correlation IDs must be passed via headers only.
 
-## 6) k3s Deploy (NodePort)
+## 7) k3s Deploy (NodePort)
 
 From a host that can reach the dev NodePort (adjust IP if your server differs). `jq` is optional (drop `| jq .` if not installed).
 

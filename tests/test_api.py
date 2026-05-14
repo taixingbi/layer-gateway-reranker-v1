@@ -115,3 +115,55 @@ def test_correlation_ids_in_body_returns_400():
         # Ensure the request is rejected before upstream proxy call.
         post = client.app.state.gateway_context.client.post
         assert post.await_count == 0
+
+
+def test_conversation_id_omitted_generates_and_merges_response():
+    get_settings.cache_clear()
+    with TestClient(app) as client:
+        _mock_upstream_ok(client)
+        response = client.post("/v1/rerank", json=_payload())
+        assert response.status_code == 200
+        post = client.app.state.gateway_context.client.post
+        sent_json = post.call_args.kwargs["json"]
+        assert "conversation_id" not in sent_json
+        assert "is_new_conversation" not in sent_json
+        hdr = post.call_args.kwargs["headers"]
+        assert hdr["x-conversation-id"].startswith("conv_")
+        assert hdr["x-is-new-conversation"] == "true"
+        body = response.json()
+        assert body["conversation_id"] == hdr["x-conversation-id"]
+        assert body["is_new_conversation"] is True
+
+
+def test_conversation_id_provided_stripped_upstream():
+    get_settings.cache_clear()
+    with TestClient(app) as client:
+        _mock_upstream_ok(client)
+        payload = _payload()
+        payload["conversation_id"] = "thread-abc"
+        payload["is_new_conversation"] = False
+        response = client.post("/v1/rerank", json=payload)
+        assert response.status_code == 200
+        post = client.app.state.gateway_context.client.post
+        sent_json = post.call_args.kwargs["json"]
+        assert "conversation_id" not in sent_json
+        assert "is_new_conversation" not in sent_json
+        hdr = post.call_args.kwargs["headers"]
+        assert hdr["x-conversation-id"] == "thread-abc"
+        assert hdr["x-is-new-conversation"] == "false"
+        body = response.json()
+        assert body["conversation_id"] == "thread-abc"
+        assert body["is_new_conversation"] is False
+
+
+def test_conversation_id_blank_generates_new():
+    get_settings.cache_clear()
+    with TestClient(app) as client:
+        _mock_upstream_ok(client)
+        payload = _payload()
+        payload["conversation_id"] = "   "
+        response = client.post("/v1/rerank", json=payload)
+        assert response.status_code == 200
+        hdr = client.app.state.gateway_context.client.post.call_args.kwargs["headers"]
+        assert hdr["x-conversation-id"].startswith("conv_")
+        assert hdr["x-is-new-conversation"] == "true"

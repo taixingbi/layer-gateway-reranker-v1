@@ -15,6 +15,8 @@ Request-level routing gateway for `/v1/rerank` across multiple vLLM backends.
 - `X-Trace-Id`
 - `X-Session-Id`
 
+Optional JSON field **`conversation_id`**: thread id for the rerank call; omitted or blank values get a generated `conv_…` id. See `docs/conversation-id.md`.
+
 Omitted or blank values are auto-filled with UUIDs for logging and upstream forwarding. JSON logs show `"-"` for `request_id` / `trace_id` / `session_id` when a log line omits them or passes an empty string (see `docs/request-response-and-logging.md`).
 
 ## Configuration
@@ -52,6 +54,7 @@ Set values via environment variables (see `.env.example`):
 - `docs/design.md`
 - `docs/status-codes.md`
 - `docs/request-response-and-logging.md`
+- `docs/conversation-id.md`
 - `docs/smoke-test.md`
 - `docs/run-locally.md`
 - `docs/docker.md`
