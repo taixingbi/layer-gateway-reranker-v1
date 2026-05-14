@@ -230,6 +230,7 @@ async def rerank(request: Request) -> Response:
         if not isinstance(payload, dict):
             return JSONResponse(status_code=400, content={"error": "JSON body must be an object"})
         if _body_contains_correlation_id(payload):
+            conv_for_log, is_new_for_log = resolve_conversation_id(payload)
             log_gateway_event(
                 logger,
                 logging.WARNING,
@@ -240,6 +241,8 @@ async def rerank(request: Request) -> Response:
                 path=_RERANK_PATH,
                 status_code=400,
                 error={"kind": "CorrelationIdInBody"},
+                conversation_id=conv_for_log,
+                is_new_conversation=is_new_for_log,
             )
             return JSONResponse(
                 status_code=400,
@@ -270,6 +273,8 @@ async def rerank(request: Request) -> Response:
             session_id=session_id,
             path=_RERANK_PATH,
             queue_wait_ms=queue_wait_ms,
+            conversation_id=conversation_id,
+            is_new_conversation=is_new_conversation,
             gateway_meta={
                 "backends_count": len(context.settings.backends),
                 "admission_max_concurrent": admission.max_concurrent,
@@ -277,8 +282,6 @@ async def rerank(request: Request) -> Response:
                 "model": parsed.model,
                 "request_class": req_class,
                 "client_host": getattr(request.client, "host", None),
-                "conversation_id": conversation_id,
-                "is_new_conversation": is_new_conversation,
             },
         )
 
@@ -298,6 +301,8 @@ async def rerank(request: Request) -> Response:
                     session_id=session_id,
                     path=_RERANK_PATH,
                     queue_wait_ms=queue_wait_ms,
+                    conversation_id=conversation_id,
+                    is_new_conversation=is_new_conversation,
                     gateway_meta={"attempt": attempt, "excluded": sorted(excluded), **_routing_debug(context.selector, excluded)},
                 )
                 raise HTTPException(status_code=503, detail="No healthy backend available")
@@ -312,6 +317,8 @@ async def rerank(request: Request) -> Response:
                 path=_RERANK_PATH,
                 backend=backend.name,
                 queue_wait_ms=queue_wait_ms,
+                conversation_id=conversation_id,
+                is_new_conversation=is_new_conversation,
                 gateway_meta={
                     "attempt": attempt,
                     "excluded": sorted(excluded),
@@ -353,6 +360,8 @@ async def rerank(request: Request) -> Response:
                         latency_ms=latency_ms,
                         queue_wait_ms=queue_wait_ms,
                         status_code=upstream.status_code,
+                        conversation_id=conversation_id,
+                        is_new_conversation=is_new_conversation,
                         gateway_meta={"attempt": attempt},
                     )
                     continue
@@ -371,12 +380,12 @@ async def rerank(request: Request) -> Response:
                     latency_ms=latency_ms,
                     queue_wait_ms=queue_wait_ms,
                     status_code=upstream.status_code,
+                    conversation_id=conversation_id,
+                    is_new_conversation=is_new_conversation,
                     gateway_meta={
                         "model": parsed.model,
                         "request_class": req_class,
                         "attempt": attempt,
-                        "conversation_id": conversation_id,
-                        "is_new_conversation": is_new_conversation,
                     },
                 )
                 return _upstream_response_with_conversation(
@@ -405,6 +414,8 @@ async def rerank(request: Request) -> Response:
                         latency_ms=latency_ms,
                         queue_wait_ms=queue_wait_ms,
                         error={"kind": type(exc).__name__},
+                        conversation_id=conversation_id,
+                        is_new_conversation=is_new_conversation,
                         gateway_meta={"attempt": attempt},
                     )
                     continue
@@ -419,6 +430,8 @@ async def rerank(request: Request) -> Response:
             session_id=session_id,
             path=_RERANK_PATH,
             queue_wait_ms=queue_wait_ms,
+            conversation_id=conversation_id,
+            is_new_conversation=is_new_conversation,
             error={"kind": type(last_exc).__name__ if last_exc else "unknown"},
         )
         return JSONResponse(status_code=503, content={"error": "Backends unavailable"})

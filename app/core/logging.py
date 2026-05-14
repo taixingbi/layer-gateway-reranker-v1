@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _JSON_CONTEXT_KEYS = ("request_id", "session_id", "method", "path", "status")
 _JSON_FIXED_KEYS = frozenset({"ts", "level", "logger", *_JSON_CONTEXT_KEYS, "message", "error"})
-_GATEWAY_OPTIONAL_STRINGS = ("trace_id", "request_id", "session_id", "path", "backend")
+_GATEWAY_OPTIONAL_STRINGS = ("trace_id", "request_id", "session_id", "path", "backend", "conversation_id")
 
 
 def _load_log_timezone(name: str) -> ZoneInfo:
@@ -43,6 +43,8 @@ def log_gateway_event(
     session_id: str | None = None,
     path: str | None = None,
     backend: str | None = None,
+    conversation_id: str | None = None,
+    is_new_conversation: bool | None = None,
     latency_ms: float | None = None,
     queue_wait_ms: float | None = None,
     status_code: int | None = None,
@@ -61,6 +63,10 @@ def log_gateway_event(
         extra["path"] = path
     if backend is not None:
         extra["backend"] = backend
+    if conversation_id is not None:
+        extra["conversation_id"] = conversation_id
+    if is_new_conversation is not None:
+        extra["is_new_conversation"] = is_new_conversation
     if latency_ms is not None:
         extra["latency_ms"] = latency_ms
     if queue_wait_ms is not None:
@@ -106,6 +112,8 @@ class JsonLogFormatter(logging.Formatter):
         for key in _GATEWAY_OPTIONAL_STRINGS:
             val = getattr(record, key, None)
             payload[key] = val if val not in (None, "") else "-"
+        if hasattr(record, "is_new_conversation"):
+            payload["is_new_conversation"] = bool(record.is_new_conversation)
         if getattr(record, "latency_ms", None) is not None:
             payload["latency_ms"] = record.latency_ms
         if getattr(record, "queue_wait_ms", None) is not None:

@@ -21,3 +21,8 @@ dev = ["pytest"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.pytest.ini_options]
+# Prefer the repo's `app` package over any stale copy under `.venv/.../site-packages/`
+# (import order differs between `pytest` and `python -m pytest` without this).
+pythonpath = ["."]

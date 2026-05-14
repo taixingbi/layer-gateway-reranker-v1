@@ -37,6 +37,6 @@ If the upstream body is not JSON (or not an object), the body is passed through 
 
 ## Structured logs
 
-`gateway_started` and `request_finished` include `conversation_id` and `is_new_conversation` in `gateway_meta`.
+`gateway_started` and `request_finished` include **`conversation_id`** and **`is_new_conversation` as top-level JSON fields** (not only inside `gateway_meta`).
 
 See also [`docs/request-response-and-logging.md`](request-response-and-logging.md) for the full HTTP contract.
