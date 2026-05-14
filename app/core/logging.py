@@ -28,11 +28,6 @@ def _load_log_timezone(name: str) -> ZoneInfo:
         return ZoneInfo("America/New_York")
 
 
-def _gateway_env() -> str:
-    """Return `GATEWAY_ENV` or `ENV` (default `dev`) for log payloads."""
-    return os.environ.get("GATEWAY_ENV") or os.environ.get("ENV", "dev")
-
-
 def log_gateway_event(
     logger: logging.Logger,
     level: int,
@@ -51,7 +46,7 @@ def log_gateway_event(
     gateway_meta: Mapping[str, Any] | None = None,
 ) -> None:
     """Emit a gateway log record; extras become JSON fields in `JsonLogFormatter`."""
-    extra: dict[str, Any] = {"event": event, "service": "gateway", "env": _gateway_env()}
+    extra: dict[str, Any] = {"event": event, "service": "gateway"}
     if request_id is not None:
         extra["request_id"] = request_id
     if trace_id is not None:
@@ -104,7 +99,6 @@ class JsonLogFormatter(logging.Formatter):
             "level": self._gateway_level(record.levelname),
             "event": record.event,
             "service": getattr(record, "service", "gateway"),
-            "env": getattr(record, "env", "-"),
         }
         for key in _GATEWAY_OPTIONAL_STRINGS:
             val = getattr(record, key, None)
@@ -121,7 +115,7 @@ class JsonLogFormatter(logging.Formatter):
         if getattr(record, "gateway_meta", None) is not None:
             payload["gateway_meta"] = record.gateway_meta
         for key in self._extras:
-            if key in payload or key in {"ts", "level", "event", "service", "env", "error"}:
+            if key in payload or key in {"ts", "level", "event", "service", "error"}:
                 continue
             if hasattr(record, key):
                 payload[key] = getattr(record, key)

@@ -99,7 +99,6 @@ When JSON logging is enabled, `JsonLogFormatter` emits **one JSON object per lin
 | `level` | string | `INFO`, `WARN` (from `WARNING`), `ERROR`, … |
 | `event` | string | Logical event name (see table below) |
 | `service` | string | Always `gateway` for `log_gateway_event` |
-| `env` | string | `GATEWAY_ENV` or `ENV`, default `dev` |
 | `trace_id` | string or `"-"` | Resolved `X-Trace-Id` when set on the record; `"-"` if omitted or empty string on the record |
 | `request_id` | string or `"-"` | Resolved `X-Request-Id` when set on the record; `"-"` if omitted or empty string on the record |
 | `session_id` | string or `"-"` | Resolved `X-Session-Id` when set on the record; `"-"` if omitted or empty string on the record |
