@@ -33,10 +33,16 @@ def test_health():
     assert response.status_code == 200
 
 
-def test_ready():
+def test_ready(monkeypatch):
+    async def fake_probe(*_args, **_kwargs):
+        return {"reranker-node-1": "healthy", "reranker-node-2": "healthy"}
+
+    monkeypatch.setattr("app.main.probe_backends", fake_probe)
     with TestClient(app) as client:
         response = client.get("/ready")
     assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert response.json()["healthy_backends"] == 2
 
 
 def _mock_upstream_ok(client: TestClient) -> None:

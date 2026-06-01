@@ -26,11 +26,21 @@ Expected:
 curl -sS "$GW_URL/ready"
 ```
 
-Expected:
+Expected (when all `RERANK_BACKENDS` upstreams respond `GET /health` with 200):
 
 ```json
-{"status":"ready"}
+{
+  "status": "ready",
+  "healthy_backends": 2,
+  "total_backends": 2,
+  "backends": {
+    "reranker-node-1": "healthy",
+    "reranker-node-2": "healthy"
+  }
+}
 ```
+
+If any backend is down, HTTP `503` and `"status": "not_ready"` with per-backend `"healthy"` / `"unhealthy"`.
 
 ## 3) Basic rerank request
 

@@ -74,8 +74,10 @@ Verify service health:
 
 ```bash
 curl -sS http://127.0.0.1:30182/health
-curl -sS http://127.0.0.1:30182/ready
+curl -sS http://127.0.0.1:30182/ready | jq .
 ```
+
+`/ready` probes each `RERANK_BACKENDS` upstream `GET /health` and returns per-backend status (HTTP `503` if any backend is unhealthy).
 
 Then run full endpoint checks via `docs/smoke-test.md`.
 

@@ -7,11 +7,13 @@ import logging
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 
 from app.api.rerank import GatewayContext, router as rerank_router
 from app.core.config import get_settings
 from app.core.logging import build_logging_config, log_gateway_event
+from app.health.backends import probe_backends, ready_payload
 from app.metrics.prometheus import render_metrics
 from app.proxy.client import get_timeout
 from app.routing.selector import BackendSelector
@@ -54,9 +56,12 @@ def health() -> dict[str, str]:
 
 
 @app.get("/ready")
-def ready() -> dict[str, str]:
-    """Kubernetes-style readiness payload."""
-    return {"status": "ready"}
+async def ready(request: Request) -> JSONResponse:
+    """Readiness: probe each `RERANK_BACKENDS` upstream `/health`."""
+    ctx: GatewayContext = request.app.state.gateway_context
+    backend_status = await probe_backends(ctx.settings.backends, ctx.client)
+    body, status_code = ready_payload(backend_status)
+    return JSONResponse(content=body, status_code=status_code)
 
 
 @app.get("/metrics")
