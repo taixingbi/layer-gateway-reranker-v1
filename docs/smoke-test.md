@@ -42,7 +42,15 @@ Expected (when all `RERANK_BACKENDS` upstreams respond `GET /health` with 200):
 
 If any backend is down, HTTP `503` and `"status": "not_ready"` with per-backend `"healthy"` / `"unhealthy"`.
 
-## 3) Basic rerank request
+## 3) Version
+
+```bash
+curl -sS "$GW_URL/version" | jq .
+```
+
+Expected fields: `service`, `version`, `git_sha`, `git_branch`, `build_time`, `image`, `environment`.
+
+## 4) Basic rerank request
 
 ```bash
 curl -sS "$GW_URL/v1/rerank" \
@@ -60,7 +68,7 @@ curl -sS "$GW_URL/v1/rerank" \
 
 Expected: HTTP `200` with backend rerank response JSON.
 
-## 4) Rerank request with correlation headers
+## 5) Rerank request with correlation headers
 
 ```bash
 curl -sS "$GW_URL/v1/rerank" \
@@ -81,7 +89,7 @@ curl -sS "$GW_URL/v1/rerank" \
 
 Expected: HTTP `200`.
 
-## 5) Rerank with `conversation_id`
+## 6) Rerank with `conversation_id`
 
 Optional thread id in the JSON body (stripped before upstream; echoed in response on 2xx JSON):
 
@@ -105,7 +113,7 @@ curl -sS "$GW_URL/v1/rerank" \
 
 Expected: HTTP `200`; response JSON includes `conversation_id` and `is_new_conversation`.
 
-## 6) Negative test: correlation IDs in body must return 400
+## 7) Negative test: correlation IDs in body must return 400
 
 ```bash
 curl -sS -i "$GW_URL/v1/rerank" \
@@ -125,7 +133,7 @@ Expected:
 - HTTP `400`
 - Error message indicating correlation IDs must be passed via headers only.
 
-## 7) k3s Deploy (NodePort)
+## 8) k3s Deploy (NodePort)
 
 From a host that can reach the dev NodePort (adjust IP if your server differs). `jq` is optional (drop `| jq .` if not installed).
 

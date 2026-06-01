@@ -7,6 +7,7 @@ Request-level routing gateway for `/v1/rerank` across multiple vLLM backends.
 - `POST /v1/rerank`
 - `GET /health`
 - `GET /ready`
+- `GET /version`
 - `GET /metrics`
 
 ## Correlation headers (recommended)
@@ -75,6 +76,7 @@ Verify service health:
 ```bash
 curl -sS http://127.0.0.1:30182/health
 curl -sS http://127.0.0.1:30182/ready | jq .
+curl -sS http://127.0.0.1:30182/version | jq .
 ```
 
 `/ready` probes each `RERANK_BACKENDS` upstream `GET /health` and returns per-backend status (HTTP `503` if any backend is unhealthy).
