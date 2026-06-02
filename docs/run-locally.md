@@ -4,7 +4,7 @@ This guide runs `layer-gateway-reranker-v1` locally without Docker.
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.11+
 - Reachable rerank backends for `RERANK_BACKENDS`
 
 ## 1) Create and Activate Virtual Environment

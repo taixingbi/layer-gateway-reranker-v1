@@ -83,7 +83,7 @@ curl -sS http://127.0.0.1:30182/version | jq .
 
 Then run full endpoint checks via `docs/smoke-test.md`.
 
-If `python3` is missing, install Python 3.12+ (for example on macOS: `brew install python`).
+If `python3` is missing, install Python 3.11+ (for example on macOS: `brew install python@3.11`).
 
 ## Examples and Smoke Tests
 
