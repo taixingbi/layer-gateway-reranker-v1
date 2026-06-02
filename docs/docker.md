@@ -2,7 +2,7 @@
 
 This guide covers:
 - Running the gateway locally with Docker
-- Publishing the image to Docker Hub
+- Publishing the image to GHCR
 
 ## Prerequisites
 
@@ -79,12 +79,12 @@ curl -X POST http://localhost:30182/v1/rerank \
   }'
 ```
 
-## 4) Publish to Docker Hub
+## 4) Publish to GHCR
 
-Set your Docker Hub namespace and target tag:
+Set your GHCR namespace and target tag:
 
 ```bash
-export DOCKERHUB_USER=<your-dockerhub-username>
+export IMAGE=ghcr.io/taixingbi/layer-gateway-reranker-v1
 export IMAGE_NAME=layer-gateway-reranker-v1
 export IMAGE_TAG=v1.0.0
 ```
@@ -92,27 +92,27 @@ export IMAGE_TAG=v1.0.0
 Build and tag:
 
 ```bash
-docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} .
-docker tag ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+docker build -t ${IMAGE}/${IMAGE_NAME}:${IMAGE_TAG} .
+docker tag ${IMAGE}/${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE}/${IMAGE_NAME}:latest
 ```
 
 Login and push:
 
 ```bash
 docker login
-docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+docker push ${IMAGE}/${IMAGE_NAME}:${IMAGE_TAG}
+docker push ${IMAGE}/${IMAGE_NAME}:latest
 ```
 
-## 5) Pull and Run from Docker Hub
+## 5) Pull and Run from GHCR
 
 ```bash
-docker pull ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+docker pull ${IMAGE}/${IMAGE_NAME}:latest
 docker run --rm \
   --name layer-gateway-reranker-v1 \
   --env-file .env \
   -p 30182:30182 \
-  ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+  ${IMAGE}/${IMAGE_NAME}:latest
 ```
 
 ## Troubleshooting
